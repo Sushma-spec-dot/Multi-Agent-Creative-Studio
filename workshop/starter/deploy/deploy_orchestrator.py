@@ -201,6 +201,8 @@ def deploy_orchestrator(auto_deploy_specialists=False):
                 "CRITIC_AGENT_URL": CRITIC_URL,
                 "PM_AGENT_URL": PM_URL,
                 "GEMINI_MODEL": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+                "QUALITY_BAR": os.getenv("QUALITY_BAR", "8"),
+                "MAX_REVIEW_ROUNDS": os.getenv("MAX_REVIEW_ROUNDS", "3"),
                 # Agent Runtime auto-sets GOOGLE_CLOUD_LOCATION to the deployment
                 # region (us-central1), but preview models require "global".
                 # Explicitly override so the orchestrator can reach the model.

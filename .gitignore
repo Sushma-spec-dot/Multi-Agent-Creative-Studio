@@ -116,3 +116,6 @@ Desktop.ini
 *.bak
 *.swp
 .cache/
+
+# run_local.sh logs
+.local_logs/

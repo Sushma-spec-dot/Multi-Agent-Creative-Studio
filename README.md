@@ -14,6 +14,29 @@ AI Creative Studio is a hands-on codelab and starter kit for building a **distri
 
 The published codelab is live at **https://ani-in.github.io/Multi-Agent-Creative-Studio/**.
 
+## My Implementation (capstone)
+
+All the numbered `# TODO`s in `workshop/starter/agents/` are implemented, and the system was run end to end: locally
+over A2A (`workshop/starter/run_local.sh`) and deployed (5 specialists on Cloud Run, the Creative Director on Agent
+Runtime). Beyond the starter:
+
+- **A quality gate in code, not only in the prompt** (`agents/creative_director/quality_gate.py`). Two ADK tool
+  callbacks on the orchestrator: after the `critic` tool runs, its answer is parsed (POSTS / VISUALS / OVERALL,
+  status and score) into session state; before the `project_manager` tool runs, the call is **blocked** unless the
+  latest review is approved, and the orchestrator is told which specialist to re-run (copywriter and/or designer) with
+  the Critic's feedback.
+- **A quality bar** (`QUALITY_BAR`, default 8/10): a part the Critic marks APPROVED but scores under the bar still goes
+  back for revision. `MAX_REVIEW_ROUNDS` (default 3) stops endless loops; after the last round the plan is made from the
+  best version and is clearly marked NOT APPROVED.
+- **Verified revision loop:** with `QUALITY_BAR=9`, review 1 fell under the bar, the gate blocked the Project Manager,
+  the Copywriter and Designer re-ran with the feedback, and review 2 approved (posts 9, visuals 9) before the timeline
+  was built (~10 minutes for the full campaign).
+- The Copywriter has its ADK Skill attached; agent instructions are plain strings (the A2A agent-card builder rejects
+  callables).
+
+Run it yourself: fill in `workshop/starter/.env` from `.env.example`, `gcloud auth application-default login`, then
+`cd workshop/starter && QUALITY_BAR=9 ./run_local.sh`.
+
 ## Table of Contents
 
 - [The Problem](#the-problem)

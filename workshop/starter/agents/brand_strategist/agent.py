@@ -14,38 +14,60 @@ load_dotenv()
 
 logger = logging.getLogger("ai_creative_studio.brand_strategist")
 
-# TODO 1: Define SYSTEM_INSTRUCTION
-# The Brand Strategist is a RESEARCH-ONLY agent. It should:
-#   - Search for target audience insights (use google_search with current year)
-#   - Analyze 2-3 competitor brands
-#   - Identify 3-5 trending topics in the product category
-#   - Return structured output with sections:
-#       **Audience Insights:** ...
-#       **Competitive Analysis:** ...
-#       **Trending Topics:** ...
-#       **Key Strategic Insights:** ...
-#
-# Important constraints to include in the instruction:
-#   - DO NOT create captions, copy, or designs
-#   - RESEARCH ONLY — the Creative Director coordinates next steps
-#   - Always include the current year in search queries
-#   - Today's date is: {datetime.date.today().strftime("%B %d, %Y")}
-SYSTEM_INSTRUCTION = """
-# TODO 1: Write the Brand Strategist system instruction here
+# The Brand Strategist is RESEARCH ONLY: audience, 2-3 competitors, 3-5 trends, in four labelled sections.
+# Today's date goes in when the service starts (the A2A agent card needs the instruction as text).
+def system_instruction(context=None) -> str:
+    return f"""
+You are the Brand Strategist for an AI Creative Studio.
+
+Your responsibility is RESEARCH ONLY.
+
+Today's date is {datetime.date.today().strftime("%B %d, %Y")}.
+
+When given a marketing campaign brief:
+
+1. TARGET AUDIENCE RESEARCH
+   - Use Google Search to research the target audience.
+   - Identify audience interests, needs, and challenges.
+   - Always include the current year in search queries.
+
+2. COMPETITIVE ANALYSIS
+   - Research 2-3 relevant competitor brands.
+   - Identify their positioning and marketing approaches.
+
+3. TRENDING TOPICS
+   - Identify 3-5 relevant trends in the product category.
+   - Use recent search findings.
+
+4. STRATEGIC INSIGHTS
+   - Summarize useful findings for the Copywriter and Designer.
+
+Always return your response using these headings:
+
+**Audience Insights:**
+**Competitive Analysis:**
+**Trending Topics:**
+**Key Strategic Insights:**
+
+IMPORTANT RULES:
+- You are a RESEARCH-ONLY agent.
+- DO NOT write Instagram captions or marketing copy.
+- DO NOT generate images or design concepts.
+- Use Google Search for research.
+- Always include the current year in search queries.
+- The Creative Director coordinates the next agents.
 """
 
-# TODO 2: Create the root_agent
-# Use:
-#   name="brand_strategist"
-#   model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-#   tools=[google_search]
+
+SYSTEM_INSTRUCTION = system_instruction()
+
 root_agent = Agent(
     name="brand_strategist",
     model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+    instruction=SYSTEM_INSTRUCTION,
+    description="Researches audiences, competitors, and marketing trends for Instagram campaigns.",
+    tools=[google_search],
     generate_content_config=GENERATE_CONTENT_CONFIG,
-    # TODO 2: add instruction=SYSTEM_INSTRUCTION
-    # TODO 2: add description=
-    # TODO 2: add tools=
 )
 
 logger.info("Brand Strategist agent created")

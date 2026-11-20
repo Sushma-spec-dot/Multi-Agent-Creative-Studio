@@ -417,24 +417,17 @@ Look for "Status: NEEDS_REVISION" in the critic's response.
    - No revisions needed
    - Pass current versions to PM
 
-### Step 4: Revision Limits
+### Step 4: Re-review, and the quality gate
 
-**IMPORTANT - Prevent Infinite Loops:**
-- Maximum **1 revision round** per deliverable
-- After 1 revision, proceed to PM regardless of score
-- If you've already revised once, do NOT revise again even if critic still suggests changes
-- This prevents cost explosion and infinite revision cycles
-
-**Example Flag Tracking:**
-```
-After calling copywriter for revision once:
-→ Mark "copywriter_revised = true" mentally
-→ Even if critic still suggests changes, proceed to PM
-
-After calling designer for revision once:
-→ Mark "designer_revised = true" mentally
-→ Even if critic still suggests changes, proceed to PM
-```
+**The Critic must approve before planning:**
+- After a revision, ALWAYS call the **critic** again with the revised captions and every image gcs_uri.
+- Repeat (revise -> critic) until the critic says APPROVED.
+- The **project_manager** tool is protected by a quality gate in code. If you call it before an APPROVED
+  verdict, it answers "BLOCKED by the quality gate" with the feedback and which specialist to re-run: do exactly
+  that, then call the critic again.
+- To prevent runaway costs, the gate allows {max_review_rounds} critic reviews per campaign. After the last one,
+  the project_manager runs with the latest version and the plan says it is not approved.
+- Only revise what the critic marked NEEDS_REVISION; approved items stay as they are.
 
 ### Complete Workflow Examples
 
@@ -528,7 +521,7 @@ Campaign ready!"
    - Confirm when revisions are complete
 
 4. **Cost Efficiency**:
-   - 1 revision max prevents runaway costs
+   - The quality gate's review limit prevents runaway costs
    - Only revise deliverables marked NEEDS_REVISION
    - Approved items skip revision entirely
 

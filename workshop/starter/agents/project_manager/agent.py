@@ -7,6 +7,8 @@ from google.adk.agents import Agent
 from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from dotenv import load_dotenv
+from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+from mcp import StdioServerParameters
 try:
     from .retry import GENERATE_CONTENT_CONFIG
 except ImportError:
@@ -15,6 +17,9 @@ except ImportError:
 load_dotenv()
 
 logger = logging.getLogger("ai_creative_studio.project_manager")
+
+DESCRIPTION = ("Project manager: turns an approved Instagram campaign into a dated timeline, task list, budget and "
+               "milestones, and syncs the project and tasks to Notion when it is configured")
 
 
 def handle_notion_error(
@@ -93,28 +98,51 @@ Director), add them to the Notion project page body as a bulleted list under a
         else ""
     )
 
-    # TODO 1: Write the system instruction for the Project Manager.
-    # It should:
-    #   - Use today's date as the starting point for all timelines
-    #   - Break campaigns into phases: Strategy, Creation, Review, Launch
-    #   - Create tasks with owners and deadlines
-    #   - ALWAYS provide a text timeline first (primary deliverable)
-    #   - Use {notion_section} to optionally include Notion guidance
-    #
-    # Required text output format:
-    #   **Project Timeline:** [phases with dates from today]
-    #   **Task List:** [Task | Owner | Deadline | Status]
-    #   **Budget Breakdown:** [by category]
-    #   **Milestones:** [key checkpoints]
-    #   **Notion Status:** ["Project created..." or "Notion not configured - text timeline only"]
-    #
-    # Today's date: {datetime.date.today().strftime("%B %d, %Y")}
-    return f"""
-# TODO 1: Write the Project Manager system instruction here
+    # The plan starts from today's date. The text timeline always comes first: Notion is only an extra copy,
+    # so the plan never depends on it.
+    today = datetime.date.today()
+    return f"""You are the Project Manager of an AI Creative Studio. The conversation above holds an APPROVED
+Instagram campaign: the Brand Strategist's research, the Copywriter's 3 captions, the Designer's images and the
+Critic's review. Turn it into an actionable plan for launching that campaign.
 
-Today's date: {datetime.date.today().strftime("%B %d, %Y")}
-{notion_section}
-"""
+Today's date is {today.strftime("%A, %B %d, %Y")}. Every date you write is a real calendar date counted from today.
+
+Plan the campaign in four phases, in this order:
+1. Strategy - confirm the audience, the key messages and the posting calendar
+2. Creation - final edits to the captions and images (use the Critic's remaining suggestions, if any)
+3. Review - brand and legal check, scheduling the posts in Instagram
+4. Launch - publish the 3 posts on separate days, reply to comments, measure results after 7 days
+
+Rules:
+- Use the real campaign: name the actual captions (by their theme or first words) and images (by concept name)
+  in the tasks. Do not invent new captions, images or research.
+- Every task has an owner (a role: Brand Strategist, Copywriter, Designer, Social Media Manager, Project
+  Manager, Analyst), a deadline (a date) and a status (To Do, unless the campaign shows it's done: captions,
+  images and review are Done).
+- Budget: give a realistic small-business estimate in USD by category (creative, paid promotion, tools,
+  contingency) with a total; say it is an estimate.
+- Your text plan is the primary deliverable: always write it in full, even if a tool fails.
+- Do not rewrite the captions or create images: that is not your job.
+
+Answer in exactly this format:
+
+**Project Timeline:**
+[each phase: name, start date - end date, what happens]
+
+**Task List:**
+| Task | Owner | Deadline | Status |
+|---|---|---|---|
+[one row per task, 8-14 tasks]
+
+**Budget Breakdown:**
+[category: amount, ... Total: amount (estimate)]
+
+**Milestones:**
+[key checkpoints with dates, e.g. "Captions final - <date>", "Post 1 live - <date>", "7-day results - <date>"]
+
+**Notion Status:**
+{"[what was created in Notion, or what failed and why]" if project_database_id else "Notion not configured - text timeline only"}
+{notion_section}"""
 
 
 def create_project_manager_agent():
@@ -126,40 +154,38 @@ def create_project_manager_agent():
     if not notion_token or not notion_project_db_id or not notion_tasks_db_id:
         logger.warning("Notion credentials not set — running without Notion integration")
 
-        # TODO 2: Create and return an Agent without tools
-        # Use name="project_manager", model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        # No Notion: a plain agent that writes the text timeline.
         return Agent(
             name="project_manager",
             model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
             generate_content_config=GENERATE_CONTENT_CONFIG,
-            # TODO 2: add instruction=get_system_instruction()
-            # TODO 2: add description=
+            instruction=get_system_instruction(),
+            description=DESCRIPTION,
         )
 
     else:
         logger.info(f"Notion configured — projects database: {notion_project_db_id}, tasks database: {notion_tasks_db_id}")
 
-        # TODO 3: Create the MCP toolset for Notion
-        # Hint: import McpToolset, StdioConnectionParams from google.adk.tools.mcp_tool
-        #       import StdioServerParameters from mcp
-        #
-        # server_params = StdioServerParameters(
-        #     command="notion-mcp-server",
-        #     env={"NOTION_TOKEN": notion_token, "PATH": os.environ.get("PATH", "")}
-        # )
-        # notion_toolset = McpToolset(
-        #     connection_params=StdioConnectionParams(server_params=server_params, timeout=30.0)
-        # )
+        # Notion through MCP: ADK starts the ready-made Notion MCP server (installed in the Dockerfile) as a
+        # subprocess and turns every Notion API operation it offers into a tool (API-post-page, ...). No custom
+        # Notion code here; the token goes to the server only through its environment.
+        server_params = StdioServerParameters(
+            command="notion-mcp-server",
+            env={"NOTION_TOKEN": notion_token, "PATH": os.environ.get("PATH", "")},
+        )
+        notion_toolset = McpToolset(
+            connection_params=StdioConnectionParams(server_params=server_params, timeout=30.0)
+        )
 
-        # TODO 3: Create and return an Agent WITH the notion_toolset
         return Agent(
             name="project_manager",
             model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
             generate_content_config=GENERATE_CONTENT_CONFIG,
-            after_tool_callback=handle_notion_error,
-            # TODO 3: add instruction=get_system_instruction(project_database_id=notion_project_db_id, tasks_database_id=notion_tasks_db_id)
-            # TODO 3: add description=
-            # TODO 3: add tools=[notion_toolset]
+            after_tool_callback=handle_notion_error,    # Notion 400/404 errors -> a hint the agent can act on
+            instruction=get_system_instruction(
+                project_database_id=notion_project_db_id, tasks_database_id=notion_tasks_db_id),
+            description=DESCRIPTION,
+            tools=[notion_toolset],
         )
 
 
