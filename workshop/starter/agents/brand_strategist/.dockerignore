@@ -1,0 +1,6 @@
+# Local files never go into the image (a Mac .venv breaks the Linux container)
+.venv/
+__pycache__/
+*.pyc
+.adk/
+.env
